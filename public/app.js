@@ -53,6 +53,14 @@ const uploadProgressBar = document.getElementById('uploadProgressBar');
 const uploadProgressText = document.getElementById('uploadProgressText');
 const publishBtn = document.getElementById('publishBtn');
 
+// Miniatura y avisos
+const thumbnailUrlInput = document.getElementById('thumbnailUrlInput');
+const thumbnailFileInput = document.getElementById('thumbnailFileInput');
+const thumbnailPreviewWrap = document.getElementById('thumbnailPreviewWrap');
+const thumbnailPreviewImg = document.getElementById('thumbnailPreviewImg');
+const removeThumbnailBtn = document.getElementById('removeThumbnailBtn');
+const cloudUploadNotice = document.getElementById('cloudUploadNotice');
+
 // Tema
 const themeToggleBtn = document.getElementById('themeToggleBtn');
 
@@ -178,6 +186,43 @@ function setupEventListeners() {
     selectedFileInfo.style.display = 'none';
   });
 
+  // Miniatura / Portada
+  if (thumbnailFileInput) {
+    thumbnailFileInput.addEventListener('change', () => {
+      if (thumbnailFileInput.files && thumbnailFileInput.files[0]) {
+        const file = thumbnailFileInput.files[0];
+        const reader = new FileReader();
+        reader.onload = (e) => {
+          thumbnailPreviewImg.src = e.target.result;
+          thumbnailPreviewWrap.style.display = 'block';
+          if (thumbnailUrlInput) thumbnailUrlInput.value = '';
+        };
+        reader.readAsDataURL(file);
+      }
+    });
+  }
+
+  if (thumbnailUrlInput) {
+    thumbnailUrlInput.addEventListener('input', (e) => {
+      const val = e.target.value.trim();
+      if (val) {
+        thumbnailPreviewImg.src = val;
+        thumbnailPreviewWrap.style.display = 'block';
+      } else {
+        thumbnailPreviewWrap.style.display = 'none';
+      }
+    });
+  }
+
+  if (removeThumbnailBtn) {
+    removeThumbnailBtn.addEventListener('click', () => {
+      if (thumbnailFileInput) thumbnailFileInput.value = '';
+      if (thumbnailUrlInput) thumbnailUrlInput.value = '';
+      if (thumbnailPreviewImg) thumbnailPreviewImg.src = '';
+      if (thumbnailPreviewWrap) thumbnailPreviewWrap.style.display = 'none';
+    });
+  }
+
   // Form submit
   newPostForm.addEventListener('submit', handleNewPostSubmit);
 
@@ -210,12 +255,17 @@ function handleFileSelected() {
 
 function openModal() {
   newPostModal.classList.add('open');
+  if (isStaticMode && cloudUploadNotice) {
+    cloudUploadNotice.style.display = 'flex';
+  }
 }
 
 function closeModal() {
   newPostModal.classList.remove('open');
   uploadProgressContainer.style.display = 'none';
   uploadProgressBar.style.width = '0%';
+  if (thumbnailPreviewWrap) thumbnailPreviewWrap.style.display = 'none';
+  if (thumbnailPreviewImg) thumbnailPreviewImg.src = '';
 }
 
 // ==================== CARGAR PUBLICACIONES ====================
@@ -404,10 +454,19 @@ function renderPost(post) {
 function renderVideoPlayer(post) {
   videoWrapper.innerHTML = '';
 
-  if (post.videoType === 'youtube' || post.videoType === 'vimeo') {
+  const isGDrive = post.videoType === 'gdrive' || (post.videoUrl && post.videoUrl.includes('drive.google.com'));
+
+  if (post.videoType === 'youtube' || post.videoType === 'vimeo' || isGDrive) {
+    let embedUrl = post.videoUrl;
+    if (isGDrive) {
+      const match = embedUrl.match(/drive\.google\.com\/(?:file\/d\/|open\?id=)([a-zA-Z0-9_-]+)/);
+      if (match) {
+        embedUrl = `https://drive.google.com/file/d/${match[1]}/preview`;
+      }
+    }
     const iframe = document.createElement('iframe');
-    iframe.src = post.videoUrl;
-    iframe.allow = 'accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share';
+    iframe.src = embedUrl;
+    iframe.allow = 'accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share; fullscreen';
     iframe.allowFullscreen = true;
     videoWrapper.appendChild(iframe);
   } else {
@@ -417,6 +476,9 @@ function renderVideoPlayer(post) {
     video.autoplay = false;
     video.preload = 'metadata';
     video.playsInline = true;
+    if (post.thumbnail) {
+      video.poster = post.thumbnail;
+    }
     
     const source = document.createElement('source');
     source.src = post.videoUrl;
@@ -439,15 +501,24 @@ function renderSidebarPosts(posts) {
     item.className = `sidebar-post-item ${p.id === currentPostId ? 'active' : ''}`;
     item.dataset.id = p.id;
 
+    const thumbHtml = p.thumbnail 
+      ? `<img class="sidebar-post-thumb" src="${escapeHtml(p.thumbnail)}" alt="Portada">`
+      : `<div class="sidebar-post-thumb-placeholder">🎬</div>`;
+
     item.innerHTML = `
-      <div style="display:flex; justify-content:space-between; align-items:center;">
-        <span class="badge" style="font-size:0.65rem; margin:0;">${p.category || 'General'}</span>
-        <span style="font-size:0.75rem; color:var(--text-muted);">${timeAgo(new Date(p.createdAt))}</span>
+      <div class="sidebar-post-thumb-wrap">
+        ${thumbHtml}
       </div>
-      <h4 class="sidebar-post-title">${escapeHtml(p.title)}</h4>
-      <div class="sidebar-post-meta">
-        <span>👤 ${escapeHtml(p.author)}</span>
-        <span>💬 ${p.commentsCount || 0} &nbsp; 👁️ ${p.views || 0}</span>
+      <div class="sidebar-post-info">
+        <div style="display:flex; justify-content:space-between; align-items:center;">
+          <span class="badge" style="font-size:0.62rem; margin:0; padding:1px 6px;">${escapeHtml(p.category || 'General')}</span>
+          <span style="font-size:0.72rem; color:var(--text-muted);">${timeAgo(new Date(p.createdAt))}</span>
+        </div>
+        <h4 class="sidebar-post-title">${escapeHtml(p.title)}</h4>
+        <div class="sidebar-post-meta">
+          <span>👤 ${escapeHtml(p.author)}</span>
+          <span>💬 ${p.commentsCount || 0} &nbsp; 👁️ ${p.views || 0}</span>
+        </div>
       </div>
     `;
 
@@ -778,6 +849,54 @@ function handleShare() {
   }
 }
 
+// ==================== RECONOCIMIENTO DE VIDEOS ====================
+function parseVideoSource(rawUrl) {
+  if (!rawUrl) return { type: 'unknown', url: '', defaultThumbnail: '' };
+  const trimmed = rawUrl.trim();
+
+  // YouTube
+  const ytRegex = /(?:youtube\.com\/(?:watch\?v=|shorts\/|embed\/)|youtu\.be\/)([a-zA-Z0-9_-]{11})/;
+  const ytMatch = trimmed.match(ytRegex);
+  if (ytMatch) {
+    const id = ytMatch[1];
+    return {
+      type: 'youtube',
+      url: `https://www.youtube.com/embed/${id}`,
+      defaultThumbnail: `https://img.youtube.com/vi/${id}/hqdefault.jpg`
+    };
+  }
+
+  // Google Drive
+  const gdriveRegex = /drive\.google\.com\/(?:file\/d\/|open\?id=)([a-zA-Z0-9_-]+)/;
+  const gdriveMatch = trimmed.match(gdriveRegex);
+  if (gdriveMatch) {
+    const fileId = gdriveMatch[1];
+    return {
+      type: 'gdrive',
+      url: `https://drive.google.com/file/d/${fileId}/preview`,
+      defaultThumbnail: 'https://images.unsplash.com/photo-1522202176988-66273c2fd55f?w=800&auto=format&fit=crop&q=80'
+    };
+  }
+
+  // Vimeo
+  const vimeoRegex = /vimeo\.com\/(?:video\/)?(\d+)/;
+  const vimeoMatch = trimmed.match(vimeoRegex);
+  if (vimeoMatch) {
+    return {
+      type: 'vimeo',
+      url: `https://player.vimeo.com/video/${vimeoMatch[1]}`,
+      defaultThumbnail: ''
+    };
+  }
+
+  // Enlace directo de video (MP4, etc.)
+  return {
+    type: 'url',
+    url: trimmed,
+    defaultThumbnail: ''
+  };
+}
+
 // ==================== CREAR NUEVO POST ====================
 async function handleNewPostSubmit(e) {
   e.preventDefault();
@@ -788,19 +907,37 @@ async function handleNewPostSubmit(e) {
   const category = document.getElementById('postCategorySelect').value;
   const description = document.getElementById('postDescInput').value.trim();
 
+  // Obtener miniatura personalizada
+  let customThumbnail = '';
+  if (thumbnailPreviewWrap && thumbnailPreviewWrap.style.display !== 'none' && thumbnailPreviewImg.src) {
+    customThumbnail = thumbnailPreviewImg.src;
+  } else if (thumbnailUrlInput && thumbnailUrlInput.value.trim()) {
+    customThumbnail = thumbnailUrlInput.value.trim();
+  }
+
   if (!title) {
     showToast('El título es obligatorio', 'error');
     return;
   }
 
   publishBtn.disabled = true;
-  publishBtn.innerHTML = '<span>Subiendo publicación...</span>';
+  publishBtn.innerHTML = '<span>Publicando...</span>';
 
   try {
     if (activeTab === 'tab-upload') {
       const file = videoFileInput.files[0];
       if (!file) {
         showToast('Selecciona un archivo de video primero', 'error');
+        publishBtn.disabled = false;
+        publishBtn.innerHTML = '<span>Publicar en el Foro</span>';
+        return;
+      }
+
+      // Si estamos en la nube de GitHub Pages, evitar el error 405 (GitHub Pages no procesa POST de 300MB)
+      if (isStaticMode) {
+        showToast('En GitHub Pages (nube 24/7), sube tu video a Google Drive o YouTube y usa la pestaña "🔗 Enlace"', 'info');
+        const urlTabBtn = document.querySelector('.tab-btn[data-tab="tab-url"]');
+        if (urlTabBtn) urlTabBtn.click();
         publishBtn.disabled = false;
         publishBtn.innerHTML = '<span>Publicar en el Foro</span>';
         return;
@@ -813,8 +950,9 @@ async function handleNewPostSubmit(e) {
       formData.append('author', author);
       formData.append('category', category);
       formData.append('description', description);
+      formData.append('thumbnail', customThumbnail);
 
-      // Subida con XMLHttpRequest para barra de progreso
+      // Subida con XMLHttpRequest para servidor local Node.js
       const xhr = new XMLHttpRequest();
       xhr.open('POST', '/api/posts', true);
 
@@ -828,12 +966,16 @@ async function handleNewPostSubmit(e) {
 
       xhr.onload = () => {
         if (xhr.status === 201 || xhr.status === 200) {
-          const res = JSON.parse(xhr.responseText);
-          if (res.success && res.post) {
-            handlePostCreatedSuccess(res.post);
+          try {
+            const res = JSON.parse(xhr.responseText);
+            if (res.success && res.post) {
+              handlePostCreatedSuccess(res.post);
+            }
+          } catch (e) {
+            showToast('Error procesando respuesta del servidor', 'error');
           }
         } else {
-          showToast('Error al subir el video: ' + xhr.responseText, 'error');
+          showToast('Error al subir video. Puedes usar la pestaña Enlace para videos grandes.', 'error');
           publishBtn.disabled = false;
           publishBtn.innerHTML = '<span>Publicar en el Foro</span>';
         }
@@ -848,7 +990,7 @@ async function handleNewPostSubmit(e) {
       xhr.send(formData);
 
     } else {
-      // URL de Video (YouTube, Vimeo, MP4 directo)
+      // URL de Video (YouTube, Google Drive, Vimeo, MP4 directo)
       const videoUrl = videoUrlInput.value.trim();
       if (!videoUrl) {
         showToast('Debes ingresar un enlace de video válido', 'error');
@@ -857,25 +999,74 @@ async function handleNewPostSubmit(e) {
         return;
       }
 
-      const res = await fetch('/api/posts', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          title,
-          author,
-          category,
-          description,
-          videoUrl
-        })
-      });
+      const parsed = parseVideoSource(videoUrl);
+      const finalThumb = customThumbnail || parsed.defaultThumbnail || '';
 
-      const data = await res.json();
-      if (data.success && data.post) {
-        handlePostCreatedSuccess(data.post);
-      } else {
-        showToast(data.error || 'Error al crear la publicación', 'error');
-        publishBtn.disabled = false;
-        publishBtn.innerHTML = '<span>Publicar en el Foro</span>';
+      // Si estamos en GitHub Pages / estático, crear el post y guardar en memoria/localStorage sin error 405
+      if (isStaticMode) {
+        const newPost = {
+          id: 'post-' + Date.now(),
+          title: title,
+          author: author,
+          category: category,
+          description: description,
+          createdAt: new Date().toISOString(),
+          videoType: parsed.type,
+          videoUrl: parsed.url,
+          thumbnail: finalThumb,
+          views: 1,
+          likes: 0,
+          comments: []
+        };
+
+        const customPosts = JSON.parse(localStorage.getItem('vf_custom_posts') || '[]');
+        customPosts.unshift(newPost);
+        localStorage.setItem('vf_custom_posts', JSON.stringify(customPosts));
+
+        handlePostCreatedSuccess(newPost);
+        return;
+      }
+
+      // Servidor con backend
+      try {
+        const res = await fetch('/api/posts', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            title,
+            author,
+            category,
+            description,
+            videoUrl,
+            thumbnail: finalThumb
+          })
+        });
+
+        const data = await res.json();
+        if (data.success && data.post) {
+          handlePostCreatedSuccess(data.post);
+        } else {
+          showToast(data.error || 'Error al crear la publicación', 'error');
+          publishBtn.disabled = false;
+          publishBtn.innerHTML = '<span>Publicar en el Foro</span>';
+        }
+      } catch (err) {
+        // Fallback en caso de que el backend falle
+        const newPost = {
+          id: 'post-' + Date.now(),
+          title: title,
+          author: author,
+          category: category,
+          description: description,
+          createdAt: new Date().toISOString(),
+          videoType: parsed.type,
+          videoUrl: parsed.url,
+          thumbnail: finalThumb,
+          views: 1,
+          likes: 0,
+          comments: []
+        };
+        handlePostCreatedSuccess(newPost);
       }
     }
   } catch (err) {
@@ -887,7 +1078,7 @@ async function handleNewPostSubmit(e) {
 }
 
 function handlePostCreatedSuccess(newPost) {
-  showToast('¡Video publicado con éxito en el foro!', 'success');
+  showToast('¡Video con portada publicado con éxito!', 'success');
   closeModal();
   newPostForm.reset();
   selectedFileInfo.style.display = 'none';
@@ -904,9 +1095,10 @@ function handlePostCreatedSuccess(newPost) {
     createdAt: newPost.createdAt,
     videoType: newPost.videoType,
     videoUrl: newPost.videoUrl,
-    views: 0,
-    likes: 0,
-    commentsCount: 0
+    thumbnail: newPost.thumbnail || '',
+    views: newPost.views || 0,
+    likes: newPost.likes || 0,
+    commentsCount: (newPost.comments || []).length
   });
 
   renderSidebarPosts(allPosts);
