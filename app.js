@@ -268,6 +268,24 @@ function closeModal() {
   if (thumbnailPreviewImg) thumbnailPreviewImg.src = '';
 }
 
+// Helper para resolver rutas relativas en GitHub Pages (ej: /video-forum/intro.mp4)
+function resolveAssetUrl(url) {
+  if (!url) return '';
+  if (url.startsWith('http://') || url.startsWith('https://') || url.startsWith('data:') || url.startsWith('blob:')) {
+    return url;
+  }
+  const clean = url.replace(/^\.?\//, '');
+  const origin = window.location.origin;
+  const pathSegments = window.location.pathname.split('/').filter(Boolean);
+  const isGithub = window.location.hostname.endsWith('github.io');
+  const repoName = isGithub && pathSegments.length > 0 ? pathSegments[0] : '';
+
+  if (repoName) {
+    return `${origin}/${repoName}/${clean}`;
+  }
+  return `${origin}/${clean}`;
+}
+
 // ==================== CARGAR PUBLICACIONES ====================
 let isStaticMode = false;
 
@@ -301,7 +319,8 @@ async function loadPosts(preferredPostId = null) {
       }
 
       try {
-        const staticRes = await fetch('./data/forum_data.json');
+        const jsonUrl = resolveAssetUrl('data/forum_data.json') + '?t=' + Date.now();
+        const staticRes = await fetch(jsonUrl);
         if (staticRes.ok) {
           const rawData = await staticRes.json();
           posts = rawData.map(p => ({
@@ -317,7 +336,7 @@ async function loadPosts(preferredPostId = null) {
         // Fallback garantizado en caso de carga offline
         posts = [
           {
-            id: 'post-1',
+            id: 'post-intro-1',
             title: 'Video de Presentación - Introducción Oficial',
             description: '¡Bienvenidos a nuestro foro de video! Este es el video introductorio alojado directamente en el sitio web. Puedes verlo en pantalla completa, dejar comentarios y compartir tu opinión.',
             author: 'Arturo',
@@ -333,9 +352,11 @@ async function loadPosts(preferredPostId = null) {
         ];
       }
 
-      // Combinar con publicaciones creadas localmente
+      // Combinar con publicaciones creadas localmente y limpiar posts antiguos de demo
       const localCustomPosts = JSON.parse(localStorage.getItem('vf_custom_posts') || '[]');
-      posts = [...localCustomPosts, ...posts];
+      posts = [...localCustomPosts, ...posts].filter(p => 
+        !p.title.includes('Big Buck Bunny') && !(p.videoUrl && p.videoUrl.includes('BigBuckBunny'))
+      );
     }
 
     allPosts = posts;
@@ -475,17 +496,25 @@ function renderVideoPlayer(post) {
     const video = document.createElement('video');
     video.controls = true;
     video.autoplay = false;
-    video.preload = 'metadata';
+    video.preload = 'auto';
     video.playsInline = true;
+    
+    const finalVideoSrc = resolveAssetUrl(post.videoUrl);
+    video.src = finalVideoSrc;
+
     if (post.thumbnail) {
-      video.poster = post.thumbnail;
+      video.poster = resolveAssetUrl(post.thumbnail);
     }
     
     const source = document.createElement('source');
-    source.src = post.videoUrl;
+    source.src = finalVideoSrc;
+    source.type = 'video/mp4';
     video.appendChild(source);
 
     videoWrapper.appendChild(video);
+    try {
+      video.load();
+    } catch (e) {}
   }
 }
 
@@ -502,8 +531,9 @@ function renderSidebarPosts(posts) {
     item.className = `sidebar-post-item ${p.id === currentPostId ? 'active' : ''}`;
     item.dataset.id = p.id;
 
-    const thumbHtml = p.thumbnail 
-      ? `<img class="sidebar-post-thumb" src="${escapeHtml(p.thumbnail)}" alt="Portada">`
+    const thumbUrl = p.thumbnail ? resolveAssetUrl(p.thumbnail) : '';
+    const thumbHtml = thumbUrl 
+      ? `<img class="sidebar-post-thumb" src="${escapeHtml(thumbUrl)}" alt="Portada">`
       : `<div class="sidebar-post-thumb-placeholder">🎬</div>`;
 
     item.innerHTML = `
