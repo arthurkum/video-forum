@@ -286,6 +286,47 @@ function resolveAssetUrl(url) {
   return `${origin}/${clean}`;
 }
 
+// Helper para obtener URL base limpia sin romper rutas en GitHub Pages
+function getBaseAppUrl() {
+  const origin = window.location.origin;
+  let path = window.location.pathname.replace(/\/index\.html$/, '');
+  if (!path.endsWith('/')) {
+    path += '/';
+  }
+  return `${origin}${path}`;
+}
+
+function hashCode(str) {
+  let hash = 0;
+  for (let i = 0; i < str.length; i++) {
+    hash = ((hash << 5) - hash) + str.charCodeAt(i);
+    hash |= 0;
+  }
+  return Math.abs(hash);
+}
+
+// Genera un enlace que funciona para CUALQUIER persona en internet (sin dar error 404)
+function getShareableUrl(post) {
+  if (!post) return getBaseAppUrl();
+  const baseUrl = getBaseAppUrl();
+
+  // Si es un video personalizado (creado con YouTube, Dropbox, Drive, enlace web, etc.)
+  // Lo empaquetamos con parámetros para que cualquier amigo que abra el enlace lo vea de inmediato
+  if (post.isCustom || (post.id && post.id !== 'post-intro-1' && !post.id.startsWith('post-1'))) {
+    const params = new URLSearchParams();
+    params.set('v', post.videoUrl);
+    params.set('title', post.title);
+    if (post.author) params.set('author', post.author);
+    if (post.category) params.set('cat', post.category);
+    if (post.description) params.set('desc', post.description);
+    if (post.thumbnail) params.set('thumb', post.thumbnail);
+    return `${baseUrl}?${params.toString()}`;
+  }
+
+  // Si es el video oficial de introducción
+  return `${baseUrl}?id=${encodeURIComponent(post.id)}`;
+}
+
 // ==================== CARGAR PUBLICACIONES ====================
 let isStaticMode = false;
 
@@ -359,6 +400,45 @@ async function loadPosts(preferredPostId = null) {
       );
     }
 
+    // Comprobar si se abrió mediante un enlace compartido con video específico (?v=...)
+    const urlParams = new URLSearchParams(window.location.search);
+    const sharedV = urlParams.get('v') || urlParams.get('video');
+
+    if (sharedV) {
+      const parsed = parseVideoSource(sharedV);
+      const title = urlParams.get('title') || urlParams.get('t') || 'Video Compartido';
+      const author = urlParams.get('author') || 'Comunidad';
+      const category = urlParams.get('cat') || 'General';
+      const desc = urlParams.get('desc') || '';
+      const thumb = urlParams.get('thumb') || parsed.defaultThumbnail || '';
+
+      const sharedPost = {
+        id: 'shared-' + hashCode(sharedV + title),
+        title: title,
+        author: author,
+        category: category,
+        description: desc,
+        createdAt: new Date().toISOString(),
+        videoType: parsed.type,
+        videoUrl: parsed.url,
+        thumbnail: thumb,
+        isCustom: true,
+        views: 1,
+        likes: 1,
+        comments: []
+      };
+
+      // Guardar también en el almacenamiento local del visitante para que no se pierda
+      const localCustom = JSON.parse(localStorage.getItem('vf_custom_posts') || '[]');
+      if (!localCustom.some(p => p.id === sharedPost.id)) {
+        localCustom.unshift(sharedPost);
+        localStorage.setItem('vf_custom_posts', JSON.stringify(localCustom));
+      }
+
+      posts = [sharedPost, ...posts.filter(p => p.id !== sharedPost.id)];
+      preferredPostId = sharedPost.id;
+    }
+
     allPosts = posts;
     renderSidebarPosts(allPosts);
 
@@ -383,10 +463,12 @@ async function loadPosts(preferredPostId = null) {
 async function loadPostDetails(postId) {
   try {
     currentPostId = postId;
-
-    // Actualizar URL sin recargar
-    const newUrl = `${window.location.pathname}?id=${postId}`;
-    window.history.pushState({ postId }, '', newUrl);
+    // Actualizar URL sin recargar de forma segura (sin provocar 404 si se comparte)
+    const targetPost = allPosts.find(p => p.id === postId);
+    const newUrl = getShareableUrl(targetPost);
+    try {
+      window.history.replaceState({ postId }, '', newUrl);
+    } catch (e) {}
 
     // Marcar como activo en la barra lateral
     document.querySelectorAll('.sidebar-post-item').forEach(el => {
@@ -868,15 +950,17 @@ async function handleLikeVideo() {
 function handleShare() {
   if (!currentPostId) return;
 
-  const shareUrl = `${window.location.origin}/?id=${currentPostId}`;
+  const targetPost = currentPost || allPosts.find(p => p.id === currentPostId);
+  const shareUrl = getShareableUrl(targetPost);
+
   if (navigator.clipboard) {
     navigator.clipboard.writeText(shareUrl).then(() => {
-      showToast('¡Enlace del video copiado al portapapeles!', 'success');
+      showToast('¡Enlace copiado! Cualquier persona que lo abra verá este video.', 'success');
     }).catch(() => {
-      prompt('Copia el enlace de este video:', shareUrl);
+      prompt('Copia el enlace de este video para compartirlo:', shareUrl);
     });
   } else {
-    prompt('Copia el enlace de este video:', shareUrl);
+    prompt('Copia el enlace de este video para compartirlo:', shareUrl);
   }
 }
 
