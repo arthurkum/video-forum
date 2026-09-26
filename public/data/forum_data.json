@@ -1,52 +1,34 @@
 [
   {
     "id": "post-1",
-    "title": "Bienvenido al Foro de Videos - Video de Demostración (Big Buck Bunny)",
-    "description": "¡Hola a todos! Este es el primer hilo de debate del foro. Aquí puedes ver videos alojados directamente o incrustados desde internet, dejar comentarios, responder a otros usuarios y dar likes. ¡Pruébalo!",
-    "author": "Admin",
-    "category": "Comunidad",
-    "createdAt": "2026-09-26T01:00:00.000Z",
+    "title": "Video de Presentación - Introducción Oficial",
+    "description": "¡Bienvenidos a nuestro foro de video! Este es el video introductorio alojado directamente en el sitio web. Puedes verlo en pantalla completa, dejar comentarios y compartir tu opinión.",
+    "author": "Arturo",
+    "category": "Presentación",
+    "createdAt": "2026-09-26T02:24:00.000Z",
     "videoType": "url",
-    "videoUrl": "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4",
-    "thumbnail": "https://images.unsplash.com/photo-1536240478700-b869070f9279?w=800&auto=format&fit=crop&q=80",
-    "views": 42,
-    "likes": 8,
+    "videoUrl": "./intro.mp4",
+    "thumbnail": "https://images.unsplash.com/photo-1574717024653-61fd2cf4d44d?w=800&auto=format&fit=crop&q=80",
+    "views": 48,
+    "likes": 12,
     "comments": [
       {
         "id": "c-1",
-        "author": "Carlos",
-        "content": "¡Excelente foro! Muy rápido y la calidad de reproducción es genial. ¿Se pueden subir videos propios desde el PC?",
-        "avatarColor": "#3b82f6",
-        "createdAt": "2026-09-26T01:15:00.000Z",
-        "likes": 3,
+        "author": "Comunidad",
+        "content": "¡Excelente video de presentación! La calidad y fluidez de reproducción quedaron geniales.",
+        "avatarColor": "#10b981",
+        "createdAt": "2026-09-26T02:25:00.000Z",
+        "likes": 5,
         "replies": [
           {
             "id": "r-1",
-            "author": "Admin",
-            "content": "¡Sí! Puedes subir cualquier archivo .mp4 o .webm directamente con el botón 'Nuevo Video' o pegar enlaces de YouTube y enlaces directos.",
-            "avatarColor": "#10b981",
-            "createdAt": "2026-09-26T01:20:00.000Z",
-            "likes": 2
+            "author": "Arturo",
+            "content": "¡Muchas gracias! Ya está todo configurado y funcionando 24/7.",
+            "avatarColor": "#6366f1",
+            "createdAt": "2026-09-26T02:26:00.000Z",
+            "likes": 3
           }
         ]
-      },
-      {
-        "id": "c-2",
-        "author": "Elena M.",
-        "content": "Me encanta la interfaz oscura y lo fácil que es comentar sin registros complicados.",
-        "avatarColor": "#ec4899",
-        "createdAt": "2026-09-26T01:30:00.000Z",
-        "likes": 5,
-        "replies": []
-      },
-      {
-        "id": "c-1790406491026",
-        "author": "Tester",
-        "content": "Probando el sistema de comentarios del foro",
-        "avatarColor": "#ec4899",
-        "createdAt": "2026-09-26T07:08:11.026Z",
-        "likes": 0,
-        "replies": []
       }
     ]
   }

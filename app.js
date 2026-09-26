@@ -318,16 +318,17 @@ async function loadPosts(preferredPostId = null) {
         posts = [
           {
             id: 'post-1',
-            title: 'Mi Video - Foro y Comunidad Online',
-            description: 'Este foro está alojado directamente en la nube de GitHub 24/7. Puedes ver el video, dejar comentarios y compartir el enlace con quien quieras.',
-            author: 'Creador',
-            category: 'Video',
+            title: 'Video de Presentación - Introducción Oficial',
+            description: '¡Bienvenidos a nuestro foro de video! Este es el video introductorio alojado directamente en el sitio web. Puedes verlo en pantalla completa, dejar comentarios y compartir tu opinión.',
+            author: 'Arturo',
+            category: 'Presentación',
             createdAt: new Date().toISOString(),
             videoType: 'url',
-            videoUrl: 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4',
-            views: 120,
-            likes: 15,
-            commentsCount: 2
+            videoUrl: './intro.mp4',
+            thumbnail: 'https://images.unsplash.com/photo-1574717024653-61fd2cf4d44d?w=800&auto=format&fit=crop&q=80',
+            views: 48,
+            likes: 12,
+            commentsCount: 1
           }
         ];
       }
@@ -878,14 +879,16 @@ function parseVideoSource(rawUrl) {
     };
   }
 
-  // Vimeo
-  const vimeoRegex = /vimeo\.com\/(?:video\/)?(\d+)/;
-  const vimeoMatch = trimmed.match(vimeoRegex);
-  if (vimeoMatch) {
+  // Dropbox (conversión automática a enlace directo de streaming)
+  if (trimmed.includes('dropbox.com')) {
+    let directDropboxUrl = trimmed.replace('dl=0', 'raw=1');
+    if (!directDropboxUrl.includes('raw=1')) {
+      directDropboxUrl += (directDropboxUrl.includes('?') ? '&' : '?') + 'raw=1';
+    }
     return {
-      type: 'vimeo',
-      url: `https://player.vimeo.com/video/${vimeoMatch[1]}`,
-      defaultThumbnail: ''
+      type: 'url',
+      url: directDropboxUrl,
+      defaultThumbnail: 'https://images.unsplash.com/photo-1574717024653-61fd2cf4d44d?w=800&auto=format&fit=crop&q=80'
     };
   }
 
